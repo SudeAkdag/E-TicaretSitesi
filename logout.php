@@ -1,11 +1,13 @@
 <?php
 // logout.php
-include 'db_config.php'; // Session'ı kullanmak için dahil edilmeli
+// b) Maddesi: Kullanıcı çıkış yapabilmelidir.
 
-// Tüm session değişkenlerini sıfırla
+session_start(); // Oturumu silmek için önce başlatıp yakalamamız gerekir.
+
+// 1. Tüm session değişkenlerini hafızadan sil
 $_SESSION = array();
 
-// Session çerezini sil (Güvenlik için önerilir)
+// 2. Tarayıcıdaki Session Çerezini (Cookie) sil (Tam güvenlik için)
 if (ini_get("session.use_cookies")) {
     $params = session_get_cookie_params();
     setcookie(session_name(), '', time() - 42000,
@@ -14,10 +16,10 @@ if (ini_get("session.use_cookies")) {
     );
 }
 
-// Session'ı tamamen yok et
+// 3. Sunucudaki oturumu tamamen yok et
 session_destroy();
 
-// Kullanıcıyı giriş sayfasına yönlendir
+// 4. Kullanıcıyı giriş sayfasına geri gönder
 header("location: login.php");
 exit;
 ?>

@@ -1,24 +1,30 @@
 <?php
 // db_config.php
 
-// Oturumu başlatma (Session kullanımı için Gerekli)
-session_start();
+// Oturum Kontrolü:
+// Diğer dosyalarda (login.php vb.) session_start() zaten kullanıldığı için,
+// burada çakışma olmasın diye "Oturum açık değilse aç" kontrolü ekliyoruz.
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
 
-$host = "localhost"; // Sadece host adı
-$port = 3307;        // Port numarasını ayrı değişkene alın
-$username = "root"; 
-$password = "";      
-$dbname = "eticaret_proje";
+// Veritabanı Bilgileri
+$host = "localhost";
+$port = 3307;        // MySQL portunuz. (XAMPP'te genelde 3306'dır, siz 3307 kullanıyorsanız böyle kalsın)
+$username = "root";  // Varsayılan kullanıcı
+$password = "";      // Varsayılan şifre (boş)
+$dbname = "eticaret_proje"; // Veritabanı adınız
 
-// MySQLi ile Bağlantı Kurma
+// a) Madde: MySQLi ile Bağlantı Kurma
 $conn = new mysqli($host, $username, $password, $dbname, $port);
 
 // Bağlantı Kontrolü
 if ($conn->connect_error) {
-    // Bağlantı başarısız olursa projeyi durdur
-    die("Veritabanı bağlantısı başarısız: " . $conn->connect_error);
+    // Bağlantı başarısız olursa çalışmayı durdur
+    die("Veritabanı bağlantı hatası: " . $conn->connect_error);
 }
 
-// Türkçe karakter desteği için set_charset
+// Türkçe karakter sorunu yaşamamak için UTF-8 ayarı
 $conn->set_charset("utf8");
+
 ?>
