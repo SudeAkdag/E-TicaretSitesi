@@ -1,13 +1,11 @@
 <?php
 // /musteri/dashboard.php
-// 5. Madde: Sayfa geçişlerinde session kontrolü
 session_start();
 
 include '../db_config.php'; 
 
-// c) Madde: Yetki Kontrolü. Sadece Rol ID'si 3 (Müşteri) olanlar girebilir.
+// Yetki Kontrolü: Sadece Müşteri (Rol ID: 3) girebilir.
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== TRUE || $_SESSION['rol_id'] != 3) {
-    // Yetkisiz giriş denemesi, login sayfasına at.
     header("location: ../login.php");
     exit;
 }
@@ -20,7 +18,6 @@ $kullanici_id = $_SESSION['kullanici_id'];
 $ad_soyad = isset($_SESSION['ad_soyad']) ? $_SESSION['ad_soyad'] : 'Değerli Müşterimiz';
 
 // 1. Adım: KullanıcıID'den MusteriID'yi bul.
-// (Normalde bunu da login aşamasında session'a atabilirdik ama veritabanından çekmek de uygundur)
 $sql_musteri = "SELECT MusteriID FROM MUSTERI WHERE KullaniciID = $kullanici_id";
 $result_musteri = $conn->query($sql_musteri);
 
@@ -28,35 +25,44 @@ if ($result_musteri->num_rows > 0) {
     $musteri_info = $result_musteri->fetch_assoc();
     $musteri_id = $musteri_info['MusteriID'];
 
-    // 6. ve 7. Madde: Saklı Yordam (SP) ve Join Kullanımı
-    // SP_MusteriSiparisDetaylari prosedürü; Siparis, SiparisDetay, Urun ve Adres tablolarını JOIN ile birleştirip getirmelidir.
+    // Saklı Yordam (SP) çağırılıyor
     if ($stmt = $conn->prepare("CALL SP_MusteriSiparisDetaylari(?)")) {
         $stmt->bind_param("i", $musteri_id);
         
         if ($stmt->execute()) {
             $result = $stmt->get_result();
             
-            // Veriyi Gruplama Algoritması (Master-Detail Yapısı)
-            // SQL'den gelen satırları Sipariş ID'sine göre gruplayıp diziye atıyoruz.
+            // Veriyi Gruplama Algoritması
             $temp_siparisler = [];
+            
             while ($row = $result->fetch_assoc()) {
                 $siparis_id = $row['SiparisID'];
                 
+                // O anki satırın (ürünün) tutarını hesapla
+                $satir_tutari = $row['Adet'] * $row['BirimFiyat'];
+
                 // Eğer bu sipariş dizide yoksa, başlık bilgilerini oluştur
                 if (!isset($temp_siparisler[$siparis_id])) {
                     $temp_siparisler[$siparis_id] = [
                         'SiparisID' => $row['SiparisID'],
                         'SiparisTarihi' => $row['SiparisTarihi'],
-                        'ToplamTutar' => $row['ToplamTutar'],
+                        
+                        // ÖNEMLİ DÜZELTME: Veritabanındaki 'ToplamTutar' yerine
+                        // hesaplamaya başlamak için 0 değeri veriyoruz.
+                        'ToplamTutar' => 0, 
+                        
                         'SiparisDurumu' => $row['SiparisDurumu'],
-                        'AcikAdres' => $row['AcikAdres'], // Adres tablosundan gelen veri
-                        'Detaylar' => [] // Ürünleri buraya dolduracağız
+                        'AcikAdres' => $row['AcikAdres'], 
+                        'Detaylar' => [] 
                     ];
                 }
                 
+                // ÖNEMLİ DÜZELTME: Her satırın tutarını siparişin genel toplamına ekle
+                $temp_siparisler[$siparis_id]['ToplamTutar'] += $satir_tutari;
+
                 // Siparişin içindeki ürünleri (detayları) ekle
                 $temp_siparisler[$siparis_id]['Detaylar'][] = [
-                    'UrunAdi' => $row['UrunAdi'], // Urun tablosundan
+                    'UrunAdi' => $row['UrunAdi'], 
                     'Adet' => $row['Adet'],
                     'BirimFiyat' => $row['BirimFiyat']
                 ];
@@ -74,7 +80,6 @@ if ($result_musteri->num_rows > 0) {
         $hata = "Sistem hatası (SP Hazırlama): " . $conn->error;
     }
 } else {
-    // Kullanıcı tablosunda var ama Müşteri tablosunda kaydı yoksa
     $hata = "Müşteri profil kaydınız bulunamadı. Lütfen yönetici ile iletişime geçin.";
 }
 ?>
