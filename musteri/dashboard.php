@@ -88,78 +88,74 @@ if ($result_musteri->num_rows > 0) {
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>Müşteri Paneli</title>
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; background-color: #f9f9f9; }
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-bottom: 20px; }
-        .logout-btn { background-color: #dc3545; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; }
-        .order-card { background: white; border: 1px solid #ddd; margin-bottom: 20px; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .order-header { border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px; }
-        .status-active { color: #28a745; font-weight: bold; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { border: 1px solid #eee; padding: 8px; text-align: left; }
-        th { background-color: #f8f9fa; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Müşteri Paneli - E-Ticaret Sistemi</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
 </head>
 <body>
-
-    <div class="header">
-        <div>
-            <h1>🛍️ Müşteri Paneli</h1>
-            <p>Hoş Geldiniz, <strong><?php echo htmlspecialchars($ad_soyad); ?></strong></p>
-        </div>
-        <div>
-            <a href="../logout.php" class="logout-btn">Güvenli Çıkış</a>
-        </div>
-    </div>
-
-    <h2>📦 Sipariş Geçmişim</h2>
-
-    <?php if ($hata): ?>
-        <div style="background-color: #ffeeba; color: #856404; padding: 15px; border-radius: 5px;">
-            ⚠️ <?php echo $hata; ?>
-        </div>
-    <?php elseif (empty($siparisler)): ?>
-        <p>Henüz vermiş olduğunuz bir sipariş bulunmamaktadır. Alışverişe hemen başlayın!</p>
-    <?php else: ?>
-        
-        <?php foreach ($siparisler as $siparis): ?>
-            <div class="order-card">
-                <div class="order-header">
-                    <h3>Sipariş No: #<?php echo $siparis['SiparisID']; ?></h3>
-                    <p>
-                        Tarih: <?php echo date("d.m.Y", strtotime($siparis['SiparisTarihi'])); ?> | 
-                        Durum: <span class="status-active"><?php echo htmlspecialchars($siparis['SiparisDurumu']); ?></span> | 
-                        Toplam: <strong><?php echo number_format($siparis['ToplamTutar'], 2); ?> ₺</strong>
-                    </p>
-                    <p style="font-size: 0.9em; color: #666;">📍 Teslimat Adresi: <?php echo htmlspecialchars($siparis['AcikAdres']); ?></p>
-                </div>
-                
-                <h4>Sipariş İçeriği:</h4>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Ürün Adı</th>
-                            <th>Adet</th>
-                            <th>Birim Fiyat</th>
-                            <th>Ara Toplam</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($siparis['Detaylar'] as $detay): ?>
-                            <tr>
-                                <td><?php echo htmlspecialchars($detay['UrunAdi']); ?></td>
-                                <td><?php echo htmlspecialchars($detay['Adet']); ?></td>
-                                <td><?php echo number_format($detay['BirimFiyat'], 2); ?> ₺</td>
-                                <td><?php echo number_format($detay['Adet'] * $detay['BirimFiyat'], 2); ?> ₺</td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+    <div class="page-container fade-in">
+        <div class="header">
+            <div>
+                <h1>🛍️ Müşteri Paneli</h1>
+                <p>Hoş Geldiniz, <strong><?php echo htmlspecialchars($ad_soyad); ?></strong></p>
             </div>
-        <?php endforeach; ?>
+            <a href="../logout.php" class="logout-btn">🚪 Güvenli Çıkış</a>
+        </div>
 
-    <?php endif; ?>
+        <h2>📦 Sipariş Geçmişim</h2>
 
+        <?php if ($hata): ?>
+            <div class="alert alert-error">
+                <strong>⚠️ Hata:</strong> <?php echo htmlspecialchars($hata); ?>
+            </div>
+        <?php elseif (empty($siparisler)): ?>
+            <div class="card text-center">
+                <h3>Henüz Siparişiniz Yok</h3>
+                <p>Henüz vermiş olduğunuz bir sipariş bulunmamaktadır. Alışverişe hemen başlayın! 🛒</p>
+            </div>
+        <?php else: ?>
+            
+            <?php foreach ($siparisler as $siparis): ?>
+                <div class="order-card">
+                    <div class="order-header">
+                        <h3>Sipariş No: #<?php echo htmlspecialchars($siparis['SiparisID']); ?></h3>
+                        <div class="order-meta">
+                            <span>📅 <strong>Tarih:</strong> <?php echo date("d.m.Y", strtotime($siparis['SiparisTarihi'])); ?></span>
+                            <span>📊 <strong>Durum:</strong> <span class="status-active"><?php echo htmlspecialchars($siparis['SiparisDurumu']); ?></span></span>
+                            <span>💰 <strong>Toplam:</strong> <?php echo number_format($siparis['ToplamTutar'], 2); ?> ₺</span>
+                        </div>
+                        <p style="margin-top: 0.75rem; color: var(--text-secondary);">
+                            <strong>📍 Teslimat Adresi:</strong> <?php echo htmlspecialchars($siparis['AcikAdres']); ?>
+                        </p>
+                    </div>
+                    
+                    <h4 style="margin-bottom: 1rem; color: var(--text-primary);">Sipariş İçeriği</h4>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Ürün Adı</th>
+                                    <th>Adet</th>
+                                    <th>Birim Fiyat</th>
+                                    <th>Ara Toplam</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($siparis['Detaylar'] as $detay): ?>
+                                    <tr>
+                                        <td><strong><?php echo htmlspecialchars($detay['UrunAdi']); ?></strong></td>
+                                        <td><?php echo htmlspecialchars($detay['Adet']); ?> adet</td>
+                                        <td><?php echo number_format($detay['BirimFiyat'], 2); ?> ₺</td>
+                                        <td><strong><?php echo number_format($detay['Adet'] * $detay['BirimFiyat'], 2); ?> ₺</strong></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+
+        <?php endif; ?>
+    </div>
 </body>
 </html>

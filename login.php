@@ -77,41 +77,44 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Giriş Yap - E-Ticaret Sistemi</title>
-    <style>
-        body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f2f5; }
-        .login-container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); width: 300px; }
-        input[type="email"], input[type="password"] { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; box-sizing: border-box; }
-        input[type="submit"] { width: 100%; padding: 10px; background-color: #007bff; color: white; border: none; cursor: pointer; }
-        input[type="submit"]:hover { background-color: #0056b3; }
-        .error { color: red; font-size: 0.9em; margin-bottom: 10px; }
-        .info { font-size: 0.8em; color: #666; margin-top: 20px; }
-    </style>
+    <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
-    <div class="login-container">
-        <h2 style="text-align:center;">Sisteme Giriş</h2>
-        
-        <?php if ($hata_mesaji): ?>
-            <div class="error"><?php echo $hata_mesaji; ?></div>
-        <?php endif; ?>
-
-        <form action="login.php" method="post">
-            <label for="email">E-posta:</label>
-            <input type="email" id="email" name="email" required placeholder="ornek@email.com">
+    <div class="login-wrapper">
+        <div class="login-container fade-in">
+            <h2>Sisteme Giriş</h2>
             
-            <label for="sifre">Şifre:</label>
-            <input type="password" id="sifre" name="sifre" required placeholder="******">
-            
-            <input type="submit" value="Giriş Yap">
-        </form>
+            <?php if ($hata_mesaji): ?>
+                <div class="alert alert-error">
+                    <strong>⚠️ Hata:</strong> <?php echo htmlspecialchars($hata_mesaji); ?>
+                </div>
+            <?php endif; ?>
 
-        <div class="info">
-            <strong>Test Hesapları:</strong><br>
-            Admin: yonetici1@sirket.com<br>
-            Personel: pelin.gok@sirket.com<br>
-            Müşteri: mehmet.demir@mail.com<br>
-            (Şifreler: 123)
+            <form action="login.php" method="post">
+                <div class="form-group">
+                    <label for="email">E-posta Adresi</label>
+                    <input type="email" id="email" name="email" required placeholder="ornek@email.com" autocomplete="email">
+                </div>
+                
+                <div class="form-group">
+                    <label for="sifre">Şifre</label>
+                    <input type="password" id="sifre" name="sifre" required placeholder="••••••" autocomplete="current-password">
+                </div>
+                
+                <input type="submit" value="Giriş Yap">
+            </form>
+
+            <div class="info-box">
+                <strong>📋 Test Hesapları</strong>
+                <small>
+                    <strong>Yönetici:</strong> yonetici1@sirket.com<br>
+                    <strong>Personel:</strong> pelin.gok@sirket.com<br>
+                    <strong>Müşteri:</strong> mehmet.demir@mail.com<br>
+                    <em>(Tüm hesaplar için şifre: 123)</em>
+                </small>
+            </div>
         </div>
     </div>
 </body>

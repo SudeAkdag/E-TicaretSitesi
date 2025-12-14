@@ -63,100 +63,95 @@ if ($stmt = $conn->prepare("CALL SP_BeklemedeOlanSiparisler()")) {
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Personel Paneli - Sipariş Yönetimi</title>
-    <style>
-        body { font-family: 'Arial', sans-serif; background-color: #f4f6f9; margin: 20px; }
-        .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        h1 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
-        .header-info { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .logout-btn { background-color: #dc3545; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; }
-        
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-        th { background-color: #007bff; color: white; }
-        tr:nth-child(even) { background-color: #f2f2f2; }
-        tr:hover { background-color: #e9ecef; }
-        
-        .status-badge { padding: 5px 10px; border-radius: 15px; font-size: 0.85em; font-weight: bold; background-color: #ffc107; color: #333; }
-        
-        select { padding: 5px; border-radius: 4px; border: 1px solid #ccc; }
-        .btn-update { background-color: #28a745; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
-        .btn-update:hover { background-color: #218838; }
-        
-        .message-box { padding: 10px; margin-bottom: 15px; border-radius: 5px; }
-        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-    </style>
+    <link rel="stylesheet" href="../assets/css/style.css">
 </head>
 <body>
 
-<div class="container">
+<div class="page-container fade-in">
     <div class="header-info">
         <div>
             <h1>📦 Depo & Sipariş Yönetimi</h1>
             <p>Aktif Personel: <strong><?php echo htmlspecialchars($personel_adi); ?></strong></p>
         </div>
-        <a href="../logout.php" class="logout-btn">Çıkış Yap</a>
+        <a href="../logout.php" class="logout-btn">🚪 Çıkış Yap</a>
     </div>
 
     <?php if ($mesaj): ?>
-        <div class="message-box success"><?php echo $mesaj; ?></div>
+        <div class="message-box success">
+            <strong>✅ Başarılı:</strong> <?php echo htmlspecialchars($mesaj); ?>
+        </div>
     <?php endif; ?>
     
     <?php if ($hata): ?>
-        <div class="message-box error"><?php echo $hata; ?></div>
+        <div class="message-box error">
+            <strong>⚠️ Hata:</strong> <?php echo htmlspecialchars($hata); ?>
+        </div>
     <?php endif; ?>
 
-    <h3>📋 Bekleyen Siparişler Listesi</h3>
+    <h2>📋 Bekleyen Siparişler Listesi</h2>
     
     <?php if (empty($siparisler)): ?>
-        <p style="text-align:center; padding: 20px; font-style: italic;">Şu an işlem bekleyen yeni sipariş bulunmamaktadır.</p>
+        <div class="card text-center">
+            <h3>Şu An Bekleyen Sipariş Yok</h3>
+            <p style="font-style: italic; color: var(--text-secondary);">
+                İşlem bekleyen yeni sipariş bulunmamaktadır. Tüm siparişler işlenmiş durumda! ✅
+            </p>
+        </div>
     <?php else: ?>
-        <table>
-            <thead>
-                <tr>
-                    <th>Sipariş No</th>
-                    <th>Tarih</th>
-                    <th>Tutar</th>
-                    <th>Müşteri Bilgisi</th>
-                    <th>Teslimat Adresi</th>
-                    <th>Mevcut Durum</th>
-                    <th>Durum Güncelle</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($siparisler as $siparis): ?>
-                <tr>
-                    <td>#<?php echo htmlspecialchars($siparis['SiparisID']); ?></td>
-                    <td><?php echo htmlspecialchars($siparis['SiparisTarihi']); ?></td>
-                    <td><?php echo number_format($siparis['ToplamTutar'], 2); ?> ₺</td>
-                    <td>
-                        <?php echo htmlspecialchars($siparis['MusteriAd'] . ' ' . $siparis['MusteriSoyad']); ?><br>
-                        <small>(<?php echo htmlspecialchars($siparis['MusteriEmail']); ?>)</small>
-                    </td>
-                    <td title="<?php echo htmlspecialchars($siparis['TeslimatAdresi']); ?>">
-                        <?php echo htmlspecialchars(substr($siparis['TeslimatAdresi'], 0, 40)) . '...'; ?>
-                    </td>
-                    <td><span class="status-badge"><?php echo htmlspecialchars($siparis['Durum']); ?></span></td>
-                    <td>
-                        <form method="POST" action="dashboard.php">
-                            <input type="hidden" name="siparis_id" value="<?php echo $siparis['SiparisID']; ?>">
-                            <div style="display:flex; gap:5px;">
-                                <select name="yeni_durum" required>
-                                    <option value="" disabled selected>Seçiniz</option>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Sipariş No</th>
+                        <th>Tarih</th>
+                        <th>Tutar</th>
+                        <th>Müşteri Bilgisi</th>
+                        <th>Teslimat Adresi</th>
+                        <th>Mevcut Durum</th>
+                        <th>Durum Güncelle</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($siparisler as $siparis): ?>
+                    <tr>
+                        <td><strong>#<?php echo htmlspecialchars($siparis['SiparisID']); ?></strong></td>
+                        <td><?php echo date("d.m.Y", strtotime($siparis['SiparisTarihi'])); ?></td>
+                        <td><strong><?php echo number_format($siparis['ToplamTutar'], 2); ?> ₺</strong></td>
+                        <td>
+                            <strong><?php echo htmlspecialchars($siparis['MusteriAd'] . ' ' . $siparis['MusteriSoyad']); ?></strong><br>
+                            <small style="color: var(--text-secondary);"><?php echo htmlspecialchars($siparis['MusteriEmail']); ?></small>
+                        </td>
+                        <td title="<?php echo htmlspecialchars($siparis['TeslimatAdresi']); ?>">
+                            <?php 
+                            $adres = htmlspecialchars($siparis['TeslimatAdresi']);
+                            echo strlen($adres) > 50 ? substr($adres, 0, 50) . '...' : $adres;
+                            ?>
+                        </td>
+                        <td>
+                            <span class="badge badge-warning"><?php echo htmlspecialchars($siparis['Durum']); ?></span>
+                        </td>
+                        <td>
+                            <form method="POST" action="dashboard.php" style="display: flex; gap: 0.5rem; align-items: center;">
+                                <input type="hidden" name="siparis_id" value="<?php echo $siparis['SiparisID']; ?>">
+                                <select name="yeni_durum" required style="flex: 1; padding: 0.5rem;">
+                                    <option value="" disabled selected>Durum Seçiniz</option>
                                     <option value="Hazirlaniyor">📦 Hazırlanıyor</option>
                                     <option value="Kargoda">🚚 Kargoda</option>
                                     <option value="Teslim Edildi">✅ Teslim Edildi</option>
                                     <option value="Iptal">❌ İptal Et</option>
                                 </select>
-                                <button type="submit" name="siparis_guncelle" class="btn-update">Kaydet</button>
-                            </div>
-                        </form>
-                    </td>
-                </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
+                                <button type="submit" name="siparis_guncelle" class="btn btn-success" style="padding: 0.5rem 1rem; white-space: nowrap;">
+                                    Kaydet
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
     <?php endif; ?>
 </div>
 
