@@ -1,0 +1,137 @@
+<?php
+// /personel/hareketlerim.php
+session_start();
+include '../db_config.php';
+
+// 1. Yetki Kontrolü: Sadece Personel (Rol ID: 2) girebilir.
+if (!isset($_SESSION['loggedin']) || $_SESSION['rol_id'] != 2) {
+    header("location: ../login.php");
+    exit;
+}
+
+$hareketler = [];
+$hata = "";
+
+// 2. Kullanıcı ID'den Personel ID'yi Bulma
+// Session'da sadece KullaniciID var, ama SP bizden PersonelID istiyor.
+$kullanici_id = $_SESSION['kullanici_id'];
+$personel_id = 0;
+
+if ($stmt_pid = $conn->prepare("SELECT PersonelID FROM PERSONEL WHERE KullaniciID = ?")) {
+    $stmt_pid->bind_param("i", $kullanici_id);
+    $stmt_pid->execute();
+    $res_pid = $stmt_pid->get_result();
+    
+    if ($res_pid->num_rows > 0) {
+        $row_pid = $res_pid->fetch_assoc();
+        $personel_id = $row_pid['PersonelID'];
+    } else {
+        $hata = "Personel kaydı bulunamadı! Lütfen yöneticiyle görüşün.";
+    }
+    $stmt_pid->close();
+}
+
+// 3. Stored Procedure Çağırma (Eğer Personel ID bulunduysa)
+if ($personel_id > 0) {
+    // SP_PersonelStokHareketleri(PersonelID)
+    if ($stmt = $conn->prepare("CALL SP_PersonelStokHareketleri(?)")) {
+        $stmt->bind_param("i", $personel_id);
+        
+        if ($stmt->execute()) {
+            $result = $stmt->get_result();
+            while ($row = $result->fetch_assoc()) {
+                $hareketler[] = $row;
+            }
+        } else {
+            $hata = "Veriler çekilemedi: " . $stmt->error;
+        }
+        $stmt->close();
+        
+        // Bağlantı temizliği (MySQLi bugfix)
+        while ($conn->more_results() && $conn->next_result()) { ; }
+    }
+}
+?>
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Stok Hareketlerim</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+    <style>
+        /* Hareket Türüne Göre Renklendirme */
+        .badge-giris {
+            background-color: #dcfce7; color: #166534; /* Yeşil */
+            padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 13px;
+            border: 1px solid #bbf7d0;
+        }
+        .badge-cikis {
+            background-color: #fee2e2; color: #991b1b; /* Kırmızı */
+            padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 13px;
+            border: 1px solid #fecaca;
+        }
+    </style>
+</head>
+<body>
+<div class="page-container fade-in">
+    
+    <?php include 'menu.php'; ?>
+    
+    <div class="header">
+        <h1> Geçmiş Stok İşlemlerim</h1>
+    </div>
+
+    <?php if($hata): ?>
+        <div class="alert alert-error">⚠️ <?php echo htmlspecialchars($hata); ?></div>
+    <?php endif; ?>
+
+    <div class="card">
+        <?php if(empty($hareketler)): ?>
+            <div style="text-align: center; padding: 20px; color: #94a3b8;">
+                <h3>Henüz kayıtlı bir stok hareketiniz yok.</h3>
+                <p>Ürünler sayfasından stok güncellediğinizde veya yeni ürün eklediğinizde burada görünecektir.</p>
+            </div>
+        <?php else: ?>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tarih</th>
+                            <th>Ürün Adı</th>
+                            <th>Hareket Türü</th>
+                            <th>Miktar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach($hareketler as $h): 
+                            // Hareket türünü belirleyelim (Küçük/Büyük harf duyarlılığı için strtolower)
+                            $tur = mb_strtolower($h['HareketTuru']);
+                            $badge_class = ($tur == 'giris' || $tur == 'giriş') ? 'badge-giris' : 'badge-cikis';
+                            $icon = ($tur == 'giris' || $tur == 'giriş') ? '📥' : '📤';
+                        ?>
+                        <tr>
+                            <td>
+                                📅 <?php echo date("d.m.Y H:i", strtotime($h['Tarih'])); ?>
+                            </td>
+                            <td>
+                                <strong><?php echo htmlspecialchars($h['UrunAdi']); ?></strong>
+                            </td>
+                            <td>
+                                <span class="<?php echo $badge_class; ?>">
+                                    <?php echo $icon . ' ' . htmlspecialchars($h['HareketTuru']); ?>
+                                </span>
+                            </td>
+                            <td style="font-weight: bold;">
+                                <?php echo $h['Miktar']; ?> Adet
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php endif; ?>
+    </div>
+</div>
+</body>
+</html>

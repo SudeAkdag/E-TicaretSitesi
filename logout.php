@@ -4,6 +4,16 @@
 
 session_start(); // Oturumu silmek için önce başlatıp yakalamamız gerekir.
 
+// 0. ADIM: Sepeti ayrı bir cookie'ye yedekle (varsa)
+if (!empty($_SESSION['sepet'])) {
+    setcookie(
+        'sepet_backup',                 // cookie adı
+        json_encode($_SESSION['sepet']),// içerik
+        time() + 7*24*60*60,            // 7 gün geçerli
+        "/"                             // tüm sitede geçerli
+    );
+}
+
 // 1. Tüm session değişkenlerini hafızadan sil
 $_SESSION = array();
 

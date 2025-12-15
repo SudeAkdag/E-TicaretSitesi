@@ -15,7 +15,6 @@ $hata = '';
 
 // Session'dan kullanıcı bilgilerini al
 $kullanici_id = $_SESSION['kullanici_id']; 
-$ad_soyad = isset($_SESSION['ad_soyad']) ? $_SESSION['ad_soyad'] : 'Değerli Müşterimiz';
 
 // 1. Adım: KullanıcıID'den MusteriID'yi bul.
 $sql_musteri = "SELECT MusteriID FROM MUSTERI WHERE KullaniciID = $kullanici_id";
@@ -46,18 +45,14 @@ if ($result_musteri->num_rows > 0) {
                     $temp_siparisler[$siparis_id] = [
                         'SiparisID' => $row['SiparisID'],
                         'SiparisTarihi' => $row['SiparisTarihi'],
-                        
-                        // ÖNEMLİ DÜZELTME: Veritabanındaki 'ToplamTutar' yerine
-                        // hesaplamaya başlamak için 0 değeri veriyoruz.
                         'ToplamTutar' => 0, 
-                        
                         'SiparisDurumu' => $row['SiparisDurumu'],
                         'AcikAdres' => $row['AcikAdres'], 
                         'Detaylar' => [] 
                     ];
                 }
                 
-                // ÖNEMLİ DÜZELTME: Her satırın tutarını siparişin genel toplamına ekle
+                // Her satırın tutarını siparişin genel toplamına ekle
                 $temp_siparisler[$siparis_id]['ToplamTutar'] += $satir_tutari;
 
                 // Siparişin içindeki ürünleri (detayları) ekle
@@ -89,20 +84,28 @@ if ($result_musteri->num_rows > 0) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Müşteri Paneli - E-Ticaret Sistemi</title>
+    <title>Sipariş Durumum - E-Ticaret Sistemi</title>
     <link rel="stylesheet" href="../assets/css/style.css">
+    
+    <style>
+        /* Başlık hizalaması için ufak bir düzenleme */
+        .header {
+            margin-bottom: 20px;
+        }
+    </style>
 </head>
 <body>
     <div class="page-container fade-in">
+        
+        <?php include 'menu.php'; ?>
+
         <div class="header">
             <div>
-                <h1>🛍️ Müşteri Paneli</h1>
-                <p>Hoş Geldiniz, <strong><?php echo htmlspecialchars($ad_soyad); ?></strong></p>
+                <h1>📦 Sipariş Durumum</h1>
             </div>
-            <a href="../logout.php" class="logout-btn">🚪 Güvenli Çıkış</a>
-        </div>
+            </div>
 
-        <h2>📦 Sipariş Geçmişim</h2>
+        <h2 style="margin-top:20px;">Sipariş Geçmişi Listesi</h2>
 
         <?php if ($hata): ?>
             <div class="alert alert-error">
@@ -111,7 +114,9 @@ if ($result_musteri->num_rows > 0) {
         <?php elseif (empty($siparisler)): ?>
             <div class="card text-center">
                 <h3>Henüz Siparişiniz Yok</h3>
-                <p>Henüz vermiş olduğunuz bir sipariş bulunmamaktadır. Alışverişe hemen başlayın! 🛒</p>
+                <p>Henüz vermiş olduğunuz bir sipariş bulunmamaktadır.</p>
+                <br>
+                <a href="urunler.php" class="shop-btn" style="background-color: #2563eb; color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none;">Alışverişe Başla 🛒</a>
             </div>
         <?php else: ?>
             
