@@ -10,7 +10,7 @@ if (session_status() == PHP_SESSION_NONE) {
 
 // Veritabanı Bilgileri
 $host = "localhost";
-$port = 3307;        // MySQL portunuz. (XAMPP'te genelde 3306'dır, siz 3307 kullanıyorsanız böyle kalsın)
+$port = 3306;        // MySQL portunuz. (XAMPP'te genelde 3306'dır, siz 3307 kullanıyorsanız böyle kalsın)
 $username = "root";  // Varsayılan kullanıcı
 $password = "";      // Varsayılan şifre (boş)
 $dbname = "eticaret_proje"; // Veritabanı adınız

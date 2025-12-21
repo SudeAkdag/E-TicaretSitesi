@@ -53,6 +53,7 @@ if ($stmt2 = $conn->prepare("CALL SP_SehirBazliSatisAnalizi()")) {
 <body>
 
 <div class="page-container fade-in">
+     <?php include 'menu.php'; ?>
     <div class="header">
         <div>
             <h1>👑 Yönetim Paneli</h1>

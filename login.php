@@ -8,7 +8,7 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] === TRUE) {
     switch ($_SESSION['rol_id']) {
         case 1: header("location: yonetici/dashboard.php"); exit;
         case 2: header("location: personel/dashboard.php"); exit;
-        case 3: header("location: urunler.php"); exit;
+        case 3: header("location: musteri/urunler.php"); exit;
     }
 }
 
