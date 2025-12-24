@@ -106,7 +106,7 @@ if ($stmt2 = $conn->prepare("CALL SP_SehirBazliSatisAnalizi()")) {
                     <tbody>
                         <?php foreach ($sehir_sonucu as $sehir): ?>
                         <tr>
-                            <td><?php echo htmlspecialchars(substr($sehir['AcikAdres'], 0, 25)) . '...'; ?></td>
+                           <td><?php echo htmlspecialchars(substr($sehir['Lokasyon'], 0, 25)) . '...'; ?></td>
                             <td><?php echo $sehir['SiparisSayisi']; ?></td>
                             <td style="text-align:right; font-weight:bold; color:#f97316;">
                                 <?php echo number_format($sehir['ToplamCiro'], 2); ?> ₺
