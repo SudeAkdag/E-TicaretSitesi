@@ -5,6 +5,7 @@ session_start();
 // DÜZELTİLEN BAĞLANTI YOLU
 include '../db_config.php'; 
 
+
 if (!isset($_SESSION['loggedin']) || $_SESSION['rol_id'] != 1) {
     header("location: ../login.php"); exit;
 }
@@ -34,7 +35,6 @@ if ($result = $conn->query("CALL SP_MusteriHarcamaRaporu_Cursor()")) {
         <div style="font-weight: bold; color: white;">👑 Yönetici Paneli</div>
         <div class="nav-links" style="display: flex; gap: 15px;">
             <a href="dashboard.php" style="color: #e2e8f0; text-decoration: none;">📊 Genel Durum</a>
-            <a href="sehir_analiz.php" style="color: #e2e8f0; text-decoration: none;">📍 Şehir Analizi</a>
             <a href="musteri_harcama_raporu.php" style="color: white; text-decoration: none; font-weight: bold; background: #3b82f6; padding: 5px 10px; border-radius: 4px;">📈 Müşteri Sadakat Raporu</a>
             <a href="../logout.php" style="color: white; background: #ef4444; padding: 5px 10px; border-radius: 4px; text-decoration: none;">🚪 Çıkış</a>
         </div>

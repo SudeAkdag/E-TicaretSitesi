@@ -15,6 +15,8 @@ $bilgi = "";
 $tarih = "";
 $hata = "";
 
+// --- HATA BURADAYDI: Veri çekme işlemi sorgudan sonraya alındı ---
+
 // 2. Verileri Çek (Stored Procedure Çağrısı)
 if ($siparis_id > 0) {
     if ($stmt = $conn->prepare("CALL SP_SiparisFaturaDetayi(?)")) {
@@ -23,6 +25,7 @@ if ($siparis_id > 0) {
         if ($stmt->execute()) {
             $result = $stmt->get_result();
             
+            // Veriler burada tanımlandıktan sonra döngüye giriyoruz
             while ($row = $result->fetch_assoc()) {
                 $detaylar[] = $row;
                 
@@ -33,7 +36,7 @@ if ($siparis_id > 0) {
                     $tarih = date("d.m.Y H:i", strtotime($row['SiparisTarihi']));
                 }
                 
-                // Toplam tutarı topluyoruz
+                // Toplam tutarı topluyoruz (BirimFiyat güncel prosedürünüzden gelmeli)
                 $toplam_tutar += $row['SatirToplami'];
             }
         } else {
@@ -54,7 +57,6 @@ if ($siparis_id > 0) {
     <title>Sipariş Detayı #<?php echo $siparis_id; ?></title>
     <link rel="stylesheet" href="../assets/css/style.css">
     <style>
-        /* Fatura Görünümü İçin Özel Stiller */
         .invoice-box {
             background: #fff;
             color: #333;
@@ -65,7 +67,6 @@ if ($siparis_id > 0) {
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
-        
         .invoice-header {
             display: flex;
             justify-content: space-between;
@@ -74,7 +75,6 @@ if ($siparis_id > 0) {
             border-bottom: 2px solid #f1f5f9;
             padding-bottom: 20px;
         }
-
         .customer-section {
             background: #f8fafc;
             padding: 20px;
@@ -82,23 +82,18 @@ if ($siparis_id > 0) {
             margin-bottom: 30px;
             border: 1px solid #e2e8f0;
         }
-
-        /* Tablo Tasarımı */
         .invoice-table {
             width: 100%;
             border-collapse: collapse;
         }
-        
-        /* --- DEĞİŞİKLİK BURADA: Başlıklar Siyah --- */
         .invoice-table th {
             text-align: left;
             padding: 12px;
             background-color: #f1f5f9;
-            color: #000; /* Yazı rengi siyah yapıldı */
-            font-weight: 700; /* Kalınlık artırıldı */
-            border-bottom: 2px solid #000; /* Alt çizgi de siyah yapıldı */
+            color: #000;
+            font-weight: 700;
+            border-bottom: 2px solid #000;
         }
-
         .invoice-table td {
             padding: 12px;
             border-bottom: 1px solid #e2e8f0;
@@ -106,8 +101,6 @@ if ($siparis_id > 0) {
         }
         .text-right { text-align: right; }
         .text-center { text-align: center; }
-
-        /* Toplam Alanı */
         .total-section {
             margin-top: 20px;
             text-align: right;
@@ -118,13 +111,10 @@ if ($siparis_id > 0) {
             font-weight: bold;
             font-size: 1.5rem;
         }
-
-        /* Yazdırma Ayarları */
         @media print {
             body { background: white; margin: 0; }
             .no-print { display: none !important; }
             .invoice-box { box-shadow: none; border: none; margin: 0; padding: 0; max-width: 100%; }
-            .page-container { padding: 0; margin: 0; }
         }
     </style>
 </head>
@@ -184,16 +174,22 @@ if ($siparis_id > 0) {
                     <?php foreach($detaylar as $d): ?>
                     <tr>
                         <td>
-                            <strong><?php echo htmlspecialchars($d['UrunAdi']); ?></strong>
+                            <strong><?php echo htmlspecialchars($d['UrunAdi'] ?? 'Bilinmeyen Ürün'); ?></strong>
                         </td>
                         <td class="text-center">
-                            <?php echo number_format($d['BirimFiyat'], 2); ?> ₺
+                            <?php 
+                                $birim_fiyat = $d['BirimFiyat'] ?? 0; 
+                                echo number_format($birim_fiyat, 2); 
+                            ?> ₺
                         </td>
                         <td class="text-center">
-                            <?php echo $d['Adet']; ?>
+                            <?php echo $d['Adet'] ?? 0; ?>
                         </td>
                         <td class="text-right" style="font-weight: 500;">
-                            <?php echo number_format($d['SatirToplami'], 2); ?> ₺
+                            <?php 
+                                $satir_toplami = $d['SatirToplami'] ?? 0;
+                                echo number_format($satir_toplami, 2); 
+                            ?> ₺
                         </td>
                     </tr>
                     <?php endforeach; ?>

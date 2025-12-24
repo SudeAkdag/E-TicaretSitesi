@@ -53,14 +53,14 @@ if ($stmt2 = $conn->prepare("CALL SP_SehirBazliSatisAnalizi()")) {
 <body>
 
 <div class="page-container fade-in">
-     <?php include 'menu.php'; ?>
+    <?php include 'menu.php'; ?>
+
     <div class="header">
         <div>
             <h1>👑 Yönetim Paneli</h1>
             <p>Hoş Geldiniz, <strong><?php echo htmlspecialchars($yonetici_adi); ?></strong></p>
         </div>
-        <a href="../logout.php" class="logout-btn">🚪 Çıkış</a>
-    </div>
+        </div>
 
     <div class="grid-container">
         
