@@ -1,7 +1,14 @@
 <?php
 // /personel/hareketlerim.php
 session_start();
-include '../db_config.php';
+require_once '../Database.php';
+
+try {
+    $database = new Database();
+    $conn = $database->getConnection();
+} catch (Exception $e) {
+    die("Bağlantı hatası: " . $e->getMessage());
+}
 
 // 1. Yetki Kontrolü: Sadece Personel (Rol ID: 2) girebilir.
 if (!isset($_SESSION['loggedin']) || $_SESSION['rol_id'] != 2) {
@@ -13,42 +20,36 @@ $hareketler = [];
 $hata = "";
 
 // 2. Kullanıcı ID'den Personel ID'yi Bulma
-// Session'da sadece KullaniciID var, ama SP bizden PersonelID istiyor.
 $kullanici_id = $_SESSION['kullanici_id'];
 $personel_id = 0;
 
-if ($stmt_pid = $conn->prepare("SELECT PersonelID FROM PERSONEL WHERE KullaniciID = ?")) {
-    $stmt_pid->bind_param("i", $kullanici_id);
-    $stmt_pid->execute();
-    $res_pid = $stmt_pid->get_result();
+try {
+    // PDO Hazırlanmış İfadesi
+    $stmt_pid = $conn->prepare("SELECT PersonelID FROM PERSONEL WHERE KullaniciID = ?");
+    $stmt_pid->execute([$kullanici_id]); // Parametreyi burada gönderiyoruz
+    $row_pid = $stmt_pid->fetch(PDO::FETCH_ASSOC); // Veriyi çekiyoruz
     
-    if ($res_pid->num_rows > 0) {
-        $row_pid = $res_pid->fetch_assoc();
+    if ($row_pid) {
         $personel_id = $row_pid['PersonelID'];
     } else {
         $hata = "Personel kaydı bulunamadı! Lütfen yöneticiyle görüşün.";
     }
-    $stmt_pid->close();
+} catch (PDOException $e) {
+    $hata = "Sistem hatası: " . $e->getMessage();
 }
 
 // 3. Stored Procedure Çağırma (Eğer Personel ID bulunduysa)
 if ($personel_id > 0) {
-    // SP_PersonelStokHareketleri(PersonelID)
-    if ($stmt = $conn->prepare("CALL SP_PersonelStokHareketleri(?)")) {
-        $stmt->bind_param("i", $personel_id);
-        
-        if ($stmt->execute()) {
-            $result = $stmt->get_result();
-            while ($row = $result->fetch_assoc()) {
-                $hareketler[] = $row;
-            }
-        } else {
-            $hata = "Veriler çekilemedi: " . $stmt->error;
+    try {
+        // SP_PersonelStokHareketleri(PersonelID)
+        $stmt = $conn->prepare("CALL SP_PersonelStokHareketleri(?)");
+        if ($stmt->execute([$personel_id])) {
+            // PDO'da get_result() yerine fetchAll() kullanılır
+            $hareketler = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
-        $stmt->close();
-        
-        // Bağlantı temizliği (MySQLi bugfix)
-        while ($conn->more_results() && $conn->next_result()) { ; }
+        $stmt->closeCursor(); // Procedure sonrası bağlantıyı temizleme
+    } catch (PDOException $e) {
+        $hata = "Veriler çekilemedi: " . $e->getMessage();
     }
 }
 ?>
@@ -105,10 +106,11 @@ if ($personel_id > 0) {
                     </thead>
                     <tbody>
                         <?php foreach($hareketler as $h): 
-                            // Hareket türünü belirleyelim (Küçük/Büyük harf duyarlılığı için strtolower)
-                            $tur = mb_strtolower($h['HareketTuru']);
-                            $badge_class = ($tur == 'giris' || $tur == 'giriş') ? 'badge-giris' : 'badge-cikis';
-                            $icon = ($tur == 'giris' || $tur == 'giriş') ? '📥' : '📤';
+                            // Hareket türünü belirleyelim
+                            $tur = mb_strtolower($h['HareketTuru'], 'UTF-8');
+                            $is_giris = ($tur == 'giris' || $tur == 'giriş');
+                            $badge_class = $is_giris ? 'badge-giris' : 'badge-cikis';
+                            $icon = $is_giris ? '📥' : '📤';
                         ?>
                         <tr>
                             <td>
@@ -123,7 +125,7 @@ if ($personel_id > 0) {
                                 </span>
                             </td>
                             <td style="font-weight: bold;">
-                                <?php echo $h['Miktar']; ?> Adet
+                                <?php echo abs($h['Miktar']); ?> Adet
                             </td>
                         </tr>
                         <?php endforeach; ?>

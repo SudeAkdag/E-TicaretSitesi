@@ -1,7 +1,14 @@
 <?php
 // /personel/dashboard.php
 session_start();
-include '../db_config.php'; 
+require_once '../Database.php';
+
+try {
+    $database = new Database();
+    $conn = $database->getConnection();
+} catch (Exception $e) {
+    die("Veritabanı bağlantı hatası: " . $e->getMessage());
+}
 
 // 1. Yetki Kontrolü: Sadece Personel (Rol ID: 2)
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== TRUE || $_SESSION['rol_id'] != 2) {
@@ -13,37 +20,32 @@ $siparisler = [];
 $mesaj = '';
 $hata = '';
 
-// 2. Sipariş Durumu Güncelleme İşlemi
+// 2. Sipariş Durumu Güncelleme İşlemi (PDO Yapısı)
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['siparis_guncelle'])) {
     $siparis_id = $_POST['siparis_id'];
     $yeni_durum = $_POST['yeni_durum'];
 
-    if ($stmt = $conn->prepare("CALL SP_SiparisDurumGuncelle(?, ?)")) {
-        $stmt->bind_param("is", $siparis_id, $yeni_durum);
-        if ($stmt->execute()) {
+    try {
+        $stmt = $conn->prepare("CALL SP_SiparisDurumGuncelle(?, ?)");
+        if ($stmt->execute([$siparis_id, $yeni_durum])) {
             $mesaj = "✅ Sipariş #$siparis_id durumu başarıyla **'$yeni_durum'** olarak güncellendi.";
-        } else {
-            $hata = "Güncelleme başarısız: " . $stmt->error;
         }
-        $stmt->close();
-        while ($conn->more_results() && $conn->next_result()) { ; } // Temizlik
-    } else {
-        $hata = "Sorgu hatası: " . $conn->error;
+        $stmt->closeCursor(); // Procedure sonrası bağlantıyı serbest bırak
+    } catch (PDOException $e) {
+        $hata = "Güncelleme başarısız: " . $e->getMessage();
     }
 }
 
-// 3. Bekleyen Siparişleri Listeleme (SP_BeklemedeOlanSiparisler)
-if ($stmt = $conn->prepare("CALL SP_BeklemedeOlanSiparisler()")) {
+// 3. Bekleyen Siparişleri Listeleme (PDO Yapısı)
+try {
+    $stmt = $conn->prepare("CALL SP_BeklemedeOlanSiparisler()");
     if ($stmt->execute()) {
-        $result = $stmt->get_result();
-        while ($row = $result->fetch_assoc()) {
-            $siparisler[] = $row;
-        }
-        $stmt->close();
-    } else {
-        $hata = "Sipariş listesi alınamadı: " . $stmt->error;
+        // fetchAll(PDO::FETCH_ASSOC) ile tüm sonuçları diziye alıyoruz
+        $siparisler = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $stmt->closeCursor();
     }
-    while ($conn->more_results() && $conn->next_result()) { ; } // Temizlik
+} catch (PDOException $e) {
+    $hata = "Sipariş listesi alınamadı: " . $e->getMessage();
 }
 ?>
 
@@ -64,6 +66,15 @@ if ($stmt = $conn->prepare("CALL SP_BeklemedeOlanSiparisler()")) {
             transition: background 0.2s;
         }
         .btn-detail:hover { background-color: #2563eb; }
+        
+        /* Tablo ve Badge için ek iyileştirmeler */
+        .badge-warning { background-color: #f59e0b; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b; }
+        th { background-color: #f8fafc; font-weight: 600; }
+        .message-box { padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        .message-box.success { background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+        .message-box.error { background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
     </style>
 </head>
 <body>
@@ -74,7 +85,7 @@ if ($stmt = $conn->prepare("CALL SP_BeklemedeOlanSiparisler()")) {
 
     <div class="header-info" style="margin-top: 10px;">
         <div>
-            <h1 style="margin-top:0;">📋 Sipariş Yönetimi</h1>
+            <h1 style="margin-top:0; color: #1e293b;">📋 Sipariş Yönetimi</h1>
         </div>
     </div>
 
@@ -91,12 +102,12 @@ if ($stmt = $conn->prepare("CALL SP_BeklemedeOlanSiparisler()")) {
     <?php endif; ?>
 
     <?php if (empty($siparisler)): ?>
-        <div class="card text-center">
+        <div class="card text-center" style="background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
             <h3>Şu An Bekleyen Sipariş Yok</h3>
-            <p style="color: var(--text-secondary);">İşlem bekleyen yeni sipariş bulunmamaktadır. ✅</p>
+            <p style="color: #64748b;">İşlem bekleyen yeni sipariş bulunmamaktadır. ✅</p>
         </div>
     <?php else: ?>
-        <div class="table-container">
+        <div class="table-container" style="background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden;">
             <table>
                 <thead>
                     <tr>
@@ -106,7 +117,9 @@ if ($stmt = $conn->prepare("CALL SP_BeklemedeOlanSiparisler()")) {
                         <th>Müşteri</th>
                         <th>Teslimat Adresi</th>
                         <th>Durum</th>
-                        <th>İşlem</th> <th>Detay</th> </tr>
+                        <th>İşlem</th> 
+                        <th>Detay</th> 
+                    </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($siparisler as $siparis): ?>
@@ -139,7 +152,7 @@ if ($stmt = $conn->prepare("CALL SP_BeklemedeOlanSiparisler()")) {
                                     <option value="Teslim Edildi">✅ Teslim Edildi</option>
                                     <option value="Iptal">❌ İptal</option>
                                 </select>
-                                <button type="submit" name="siparis_guncelle" class="btn btn-success" style="padding: 5px 10px; font-size: 12px;">OK</button>
+                                <button type="submit" name="siparis_guncelle" class="btn btn-success" style="padding: 5px 10px; font-size: 12px; background-color: #22c55e; color: white; border: none; border-radius: 4px; cursor: pointer;">OK</button>
                             </form>
                         </td>
 

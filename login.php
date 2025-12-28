@@ -1,5 +1,4 @@
 <?php
-
 // login.php
 session_start();
 
@@ -12,7 +11,13 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] === TRUE) {
     }
 }
 
-include 'db_config.php';
+require_once 'Database.php'; 
+try {
+    $database = new Database();
+    $conn = $database->getConnection();
+} catch (Exception $e) {
+    die("Veritabanı bağlantı hatası: " . $e->getMessage());
+}
 
 $hata_mesaji = '';
 
@@ -21,18 +26,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $email = trim($_POST['email']);
     $sifre = trim($_POST['sifre']);
 
-    if ($stmt = $conn->prepare("CALL SP_KullaniciGirisKontrol(?)")) {
-
-        $stmt->bind_param("s", $email);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $user = $result->fetch_assoc();
-        $stmt->close();
-        $conn->next_result(); // MySQLi bugfix: SP sonrası bağlantıyı temizle
+    try {
+        // PDO'da Stored Procedure çağırma yöntemi
+        $stmt = $conn->prepare("CALL SP_KullaniciGirisKontrol(?)");
+        $stmt->execute([$email]); // bind_param yerine veriyi execute içinde gönderiyoruz
+        
+        // Sonucu al (fetch_assoc yerine fetch)
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        // Procedure sonrası bağlantıyı diğer sorgular için serbest bırak
+        $stmt->closeCursor();
 
         if ($user) {
-            // Not: Gerçek projede password_verify() kullanılır, burada '123' sabit kabul edildi.
-            if ($sifre == '123') { 
+            // Şifre kontrolü: SQL dosyasındaki şifreler "123" olarak düz metin tutulduğu için direkt kontrol ediyoruz.
+            // Not: Gerçek projelerde password_verify($sifre, $user['Sifre']) kullanılır.
+            if ($sifre === $user['Sifre'] || $sifre === '123') { 
 
                 // Session değişkenleri
                 $_SESSION['loggedin']     = TRUE;
@@ -41,28 +49,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $_SESSION['rol_id']       = $user['RolID'];
                 $_SESSION['email']        = $email;
 
-                // >>> BURASI EKLENDİ: Cookie'den sepeti geri yükle <<<
+                // Cookie'den sepeti geri yükleme
                 if (isset($_COOKIE['sepet_backup']) && !isset($_SESSION['sepet'])) {
                     $tmp = json_decode($_COOKIE['sepet_backup'], true);
                     if (is_array($tmp)) {
                         $_SESSION['sepet'] = $tmp;
                     }
-                    // Cookie'yi istersen temizle
                     setcookie('sepet_backup', '', time() - 3600, "/");
                 }
-                // >>> EKLENTİ BİTİŞ <<<
 
                 // Rol Yönlendirmesi
                 switch ($user['RolID']) {
-                    case 1: // Yönetici
-                        header("location: yonetici/dashboard.php");
-                        break;
-                    case 2: // Personel/Depo Sorumlusu
-                        header("location: personel/dashboard.php");
-                        break;
-                    case 3: // Müşteri
-                        header("location: musteri/urunler.php");
-                        break;
+                    case 1: header("location: yonetici/dashboard.php"); break;
+                    case 2: header("location: personel/dashboard.php"); break;
+                    case 3: header("location: musteri/urunler.php"); break;
                     default:
                         $hata_mesaji = "Tanımsız kullanıcı rolü.";
                         session_destroy();
@@ -78,12 +78,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $hata_mesaji = "Bu E-posta adresi ile kayıtlı kullanıcı bulunamadı.";
         }
 
-    } else {
-        $hata_mesaji = "Sistem hatası: " . $conn->error;
+    } catch (PDOException $e) {
+        $hata_mesaji = "Sistem hatası: " . $e->getMessage();
     }
-
 }
-
 ?>
 <!DOCTYPE html>
 <html lang="tr">

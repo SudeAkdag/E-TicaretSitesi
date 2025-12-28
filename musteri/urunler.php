@@ -1,13 +1,23 @@
 <?php
+// musteri/urunler.php
 session_start();
-include '../db_config.php';
+require_once '../Database.php';
 
+try {
+    $database = new Database();
+    $conn = $database->getConnection();
+} catch (Exception $e) {
+    die("Veritabanı bağlantı hatası: " . $e->getMessage());
+}
+
+// Yetki Kontrolü
 if (!isset($_SESSION['loggedin']) || $_SESSION['rol_id'] != 3) {
     header("location: ../login.php"); exit;
 }
 
 $ad_soyad = isset($_SESSION['ad_soyad']) ? $_SESSION['ad_soyad'] : 'Değerli Müşterimiz';
 
+// Sepete Ekleme İşlemi
 if (isset($_POST['sepete_ekle'])) {
     $urun_id = (int)$_POST['urun_id'];
     $adet    = max(1, (int)$_POST['adet']);
@@ -16,12 +26,17 @@ if (isset($_POST['sepete_ekle'])) {
     $mesaj = "Ürün sepete eklendi!";
 }
 
+// Ürünleri Çekme (PDO Yöntemi)
 $sql = "SELECT U.*, K.KategoriAdi
         FROM URUN U
         JOIN KATEGORI K ON U.KategoriID = K.KategoriID
         WHERE U.StokAdedi > 0
         ORDER BY U.UrunAdi ASC";
-$result = $conn->query($sql);
+
+// query() sonucu PDOStatement döner
+$stmt = $conn->query($sql);
+// Tüm ürünleri bir diziye alıyoruz
+$urunler = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!DOCTYPE html>
 <html lang="tr">
@@ -55,11 +70,6 @@ $result = $conn->query($sql);
         input[type=number] {
           width:70px; padding:8px; border-radius:10px;
           border:1px solid rgba(0,0,0,0.25); background:#f8fafc; color:#111827;
-          -moz-appearance: textfield;
-        }
-        input[type=number]::-webkit-outer-spin-button,
-        input[type=number]::-webkit-inner-spin-button {
-          -webkit-appearance: inner-spin-button; opacity: 1; margin: 0;
         }
         
         .btn { flex:1; background:var(--primary); color:white; border:none; padding:10px 12px; border-radius:10px; font-weight:700; cursor:pointer; transition:transform .1s ease, box-shadow .2s ease; box-shadow:var(--shadow); }
@@ -68,7 +78,8 @@ $result = $conn->query($sql);
     </style>
 </head>
 <body>
-<div class="page"> <div class="welcome">
+<div class="page"> 
+    <div class="welcome">
         <div>
             <h1 style="margin:0; font-size: 26px; color: var(--primary); display: flex; align-items: center; gap: 8px;">
                 🛍️ Müşteri Paneli
@@ -77,13 +88,13 @@ $result = $conn->query($sql);
                 Hoş geldin, <?php echo htmlspecialchars($ad_soyad); ?>
             </p>
         </div>
-        </div>
+    </div>
 
     <div class="topbar">
         <?php include 'menu.php'; ?>
         <div style="display:flex; gap:10px; align-items:center; margin-left:auto;">
             <span class="pill">Ürün Kataloğu</span>
-            </div>
+        </div>
     </div>
 
     <?php if(isset($mesaj)): ?>
@@ -91,21 +102,25 @@ $result = $conn->query($sql);
     <?php endif; ?>
 
     <div class="grid">
-        <?php while($row = $result->fetch_assoc()): ?>
-            <div class="card">
-                <div style="display:flex; align-items:center; gap:10px; justify-content:space-between;">
-                    <h3 style="margin:0; color:#111827;"><?php echo htmlspecialchars($row['UrunAdi']); ?></h3>
-                    <span class="category"><?php echo htmlspecialchars($row['KategoriAdi']); ?></span>
+        <?php if (empty($urunler)): ?>
+            <p>Şu an satışta ürün bulunmamaktadır.</p>
+        <?php else: ?>
+            <?php foreach($urunler as $row): ?>
+                <div class="card">
+                    <div style="display:flex; align-items:center; gap:10px; justify-content:space-between;">
+                        <h3 style="margin:0; color:#111827;"><?php echo htmlspecialchars($row['UrunAdi']); ?></h3>
+                        <span class="category"><?php echo htmlspecialchars($row['KategoriAdi']); ?></span>
+                    </div>
+                    <div class="price"><?php echo number_format($row['Fiyat'], 2); ?> ₺</div>
+                    <div class="stock">Stok: <?php echo (int)$row['StokAdedi']; ?></div>
+                    <form method="post">
+                        <input type="hidden" name="urun_id" value="<?php echo (int)$row['UrunID']; ?>">
+                        <input type="number" name="adet" value="1" min="1" max="<?php echo (int)$row['StokAdedi']; ?>">
+                        <button type="submit" name="sepete_ekle" class="btn">Sepete Ekle</button>
+                    </form>
                 </div>
-                <div class="price"><?php echo number_format($row['Fiyat'], 2); ?> ₺</div>
-                <div class="stock">Stok: <?php echo (int)$row['StokAdedi']; ?></div>
-                <form method="post">
-                    <input type="hidden" name="urun_id" value="<?php echo (int)$row['UrunID']; ?>">
-                    <input type="number" name="adet" value="1" min="1" max="<?php echo (int)$row['StokAdedi']; ?>">
-                    <button type="submit" name="sepete_ekle" class="btn">Sepete Ekle</button>
-                </form>
-            </div>
-        <?php endwhile; ?>
+            <?php endforeach; ?>
+        <?php endif; ?>
     </div>
 </div>
 </body>

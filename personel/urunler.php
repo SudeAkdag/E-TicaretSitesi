@@ -1,7 +1,9 @@
 <?php
 // /personel/urunler.php
 session_start();
-include '../db_config.php';
+require_once '../Database.php';
+$database = new Database();
+$conn = $database->getConnection();
 
 // Yetki Kontrolü (Personel RolID: 2)
 if (!isset($_SESSION['loggedin']) || $_SESSION['rol_id'] != 2) {
@@ -9,10 +11,10 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['rol_id'] != 2) {
 }
 
 // --- 1. ADIM: Giriş Yapan Personelin ID'sini Bul ---
-// Çünkü stok hareketini kimin yaptığını kaydetmemiz lazım.
 $kullanici_id = $_SESSION['kullanici_id'];
-$p_sor = $conn->query("SELECT PersonelID FROM PERSONEL WHERE KullaniciID = $kullanici_id");
-$p_row = $p_sor->fetch_assoc();
+$p_sor = $conn->prepare("SELECT PersonelID FROM PERSONEL WHERE KullaniciID = ?");
+$p_sor->execute([$kullanici_id]);
+$p_row = $p_sor->fetch(PDO::FETCH_ASSOC);
 $aktif_personel_id = $p_row['PersonelID'];
 
 $mesaj = null;
@@ -24,27 +26,23 @@ if (isset($_POST['guncelle'])) {
     $fiyat = $_POST['fiyat'];
     $yeni_stok = $_POST['stok'];
 
-    // Önce eski stoğu çekelim (Hareket kaydı için farkı bulacağız)
-    $eski_stok_sor = $conn->query("SELECT StokAdedi FROM URUN WHERE UrunID = $uid");
-    $eski_stok_row = $eski_stok_sor->fetch_assoc();
-    $eski_stok = $eski_stok_row['StokAdedi'];
+    // Önce eski stoğu çekelim (PDO fetchColumn kullanımı)
+    $eski_stok_sor = $conn->prepare("SELECT StokAdedi FROM URUN WHERE UrunID = ?");
+    $eski_stok_sor->execute([$uid]);
+    $eski_stok = $eski_stok_sor->fetchColumn();
     
     $stmt = $conn->prepare("UPDATE URUN SET Fiyat=?, StokAdedi=? WHERE UrunID=?");
-    $stmt->bind_param("dii", $fiyat, $yeni_stok, $uid);
     
-    if($stmt->execute()) {
+    if($stmt->execute([$fiyat, $yeni_stok, $uid])) {
         $mesaj = "Ürün başarıyla güncellendi.";
 
-        // --- STOK HAREKETİ KAYDI (GÜNCELLEME) ---
-        // Eğer stok değiştiyse hareket tablosuna yaz
         if ($yeni_stok != $eski_stok) {
             $fark = $yeni_stok - $eski_stok;
-            $tur = ($fark > 0) ? 'Giris' : 'Cikis'; // Arttıysa giriş, azaldıysa çıkış
-            $miktar = abs($fark); // Mutlak değer (pozitif sayı)
+            $tur = ($fark > 0) ? 'Giris' : 'Cikis';
+            $miktar = abs($fark);
 
             $stmt_har = $conn->prepare("INSERT INTO STOKHAREKETI (UrunID, PersonelID, Miktar, HareketTuru) VALUES (?, ?, ?, ?)");
-            $stmt_har->bind_param("iiis", $uid, $aktif_personel_id, $miktar, $tur);
-            $stmt_har->execute();
+            $stmt_har->execute([$uid, $aktif_personel_id, $miktar, $tur]);
         }
     } else {
         $hata = "Güncelleme başarısız oldu.";
@@ -68,11 +66,9 @@ if (isset($_POST['yeni_ekle'])) {
     
     // İsim Kontrolü
     $kontrol = $conn->prepare("SELECT UrunID FROM URUN WHERE UrunAdi = ?");
-    $kontrol->bind_param("s", $ad);
-    $kontrol->execute();
-    $kontrol->store_result();
+    $kontrol->execute([$ad]);
 
-    if ($kontrol->num_rows > 0) {
+    if ($kontrol->fetch()) {
         $hata = "Bu ürün ismi ('$ad') zaten kayıtlı!";
     } else {
         $islem_tamam = true;
@@ -80,19 +76,18 @@ if (isset($_POST['yeni_ekle'])) {
         // Tedarikçi Mantığı
         if (!empty($yeni_ted_ad) && !empty($yeni_ted_email)) {
             $ted_kontrol = $conn->prepare("SELECT TedarikciID FROM TEDARIKCI WHERE Email = ?");
-            $ted_kontrol->bind_param("s", $yeni_ted_email);
-            $ted_kontrol->execute();
+            $ted_kontrol->execute([$yeni_ted_email]);
+            $ted_data = $ted_kontrol->fetch(PDO::FETCH_ASSOC);
             
-            if ($ted_kontrol->get_result()->num_rows > 0) {
+            if ($ted_data) {
                 $hata = "Bu E-Posta adresiyle kayıtlı bir tedarikçi zaten var!";
                 $islem_tamam = false;
             } else {
                 $stmt_ted = $conn->prepare("INSERT INTO TEDARIKCI (TedarikciAdi, TedarikciSoyadi, Email, Telefon) VALUES (?, ?, ?, ?)");
-                $stmt_ted->bind_param("ssss", $yeni_ted_ad, $yeni_ted_soyad, $yeni_ted_email, $yeni_ted_tel);
-                if ($stmt_ted->execute()) {
-                    $son_tedarikci_id = $conn->insert_id;
+                if ($stmt_ted->execute([$yeni_ted_ad, $yeni_ted_soyad, $yeni_ted_email, $yeni_ted_tel])) {
+                    $son_tedarikci_id = $conn->lastInsertId();
                 } else {
-                    $hata = "Tedarikçi eklenirken hata: " . $stmt_ted->error;
+                    $hata = "Tedarikçi eklenirken hata oluştu.";
                     $islem_tamam = false;
                 }
             }
@@ -104,39 +99,30 @@ if (isset($_POST['yeni_ekle'])) {
         }
 
         if ($islem_tamam && $son_tedarikci_id > 0) {
-            
-            // 1. Ürünü Ekle
             $stmt_urun = $conn->prepare("INSERT INTO URUN (UrunAdi, Fiyat, StokAdedi, KategoriID) VALUES (?, ?, ?, ?)");
-            $stmt_urun->bind_param("sdii", $ad, $fiyat, $stok, $kat);
             
-            if ($stmt_urun->execute()) {
-                $yeni_urun_id = $conn->insert_id;
+            if ($stmt_urun->execute([$ad, $fiyat, $stok, $kat])) {
+                $yeni_urun_id = $conn->lastInsertId();
 
-                // 2. İlişkiyi Kur
                 $stmt_rel = $conn->prepare("INSERT INTO URUNTEDARIKCI (UrunID, TedarikciID) VALUES (?, ?)");
-                $stmt_rel->bind_param("ii", $yeni_urun_id, $son_tedarikci_id);
-                $stmt_rel->execute();
+                $stmt_rel->execute([$yeni_urun_id, $son_tedarikci_id]);
 
-                // --- 3. ADIM: STOK HAREKETİ KAYDI (YENİ EKLENDİ) ---
-                // Ürün ilk kez eklendiğinde 'Giris' olarak kaydediyoruz.
                 if ($stok > 0) {
                     $stmt_har = $conn->prepare("INSERT INTO STOKHAREKETI (UrunID, PersonelID, Miktar, HareketTuru) VALUES (?, ?, ?, 'Giris')");
-                    $stmt_har->bind_param("iii", $yeni_urun_id, $aktif_personel_id, $stok);
-                    $stmt_har->execute();
+                    $stmt_har->execute([$yeni_urun_id, $aktif_personel_id, $stok]);
                 }
-
                 $mesaj = "Ürün eklendi ve stok hareketlerine işlendi.";
             } else {
-                $hata = "Ürün kaydedilemedi: " . $stmt_urun->error;
+                $hata = "Ürün kaydedilemedi.";
             }
         }
     }
 }
 
-// Listeleme Sorguları
-$urunler = $conn->query("SELECT U.*, K.KategoriAdi FROM URUN U LEFT JOIN KATEGORI K ON U.KategoriID = K.KategoriID ORDER BY U.UrunID DESC");
-$kategoriler = $conn->query("SELECT * FROM KATEGORI");
-$tedarikciler = $conn->query("SELECT * FROM TEDARIKCI");
+// Listeleme Sorguları (PDO fetchAll kullanımı)
+$urunler = $conn->query("SELECT U.*, K.KategoriAdi FROM URUN U LEFT JOIN KATEGORI K ON U.KategoriID = K.KategoriID ORDER BY U.UrunID DESC")->fetchAll(PDO::FETCH_ASSOC);
+$kategoriler = $conn->query("SELECT * FROM KATEGORI")->fetchAll(PDO::FETCH_ASSOC);
+$tedarikciler = $conn->query("SELECT * FROM TEDARIKCI")->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
 <!DOCTYPE html>
@@ -280,7 +266,7 @@ $tedarikciler = $conn->query("SELECT * FROM TEDARIKCI");
                     </tr>
                 </thead>
                 <tbody>
-                    <?php while($row = $urunler->fetch_assoc()): ?>
+                    <?php foreach($urunler as $row): ?>
                     <tr>
                         <td>#<?php echo $row['UrunID']; ?></td>
                         <td><?php echo $row['UrunAdi']; ?></td>
@@ -300,7 +286,7 @@ $tedarikciler = $conn->query("SELECT * FROM TEDARIKCI");
                             </td>
                         </form>
                     </tr>
-                    <?php endwhile; ?>
+                    <?php endforeach; ?>
                 </tbody>
             </table>
         </div>

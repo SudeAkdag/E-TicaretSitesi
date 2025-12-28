@@ -1,7 +1,14 @@
 <?php
 // /personel/siparis_detay.php
 session_start();
-include '../db_config.php';
+require_once '../Database.php';
+
+try {
+    $database = new Database();
+    $conn = $database->getConnection();
+} catch (Exception $e) {
+    die("Veritabanı bağlantı hatası: " . $e->getMessage());
+}
 
 // 1. Yetki Kontrolü: Personel (2) veya Yönetici (1) erişebilir.
 if (!isset($_SESSION['loggedin']) || ($_SESSION['rol_id'] != 2 && $_SESSION['rol_id'] != 1)) {
@@ -15,35 +22,39 @@ $bilgi = "";
 $tarih = "";
 $hata = "";
 
-// --- HATA BURADAYDI: Veri çekme işlemi sorgudan sonraya alındı ---
-
-// 2. Verileri Çek (Stored Procedure Çağrısı)
+// 2. Verileri Çek (PDO Yöntemi)
 if ($siparis_id > 0) {
-    if ($stmt = $conn->prepare("CALL SP_SiparisFaturaDetayi(?)")) {
-        $stmt->bind_param("i", $siparis_id);
+    try {
+        $stmt = $conn->prepare("CALL SP_SiparisFaturaDetayi(?)");
         
-        if ($stmt->execute()) {
-            $result = $stmt->get_result();
+        // PDO'da bind_param yerine execute içine dizi gönderilir
+        if ($stmt->execute([$siparis_id])) {
             
-            // Veriler burada tanımlandıktan sonra döngüye giriyoruz
-            while ($row = $result->fetch_assoc()) {
-                $detaylar[] = $row;
-                
-                // Müşteri ve Sipariş genel bilgilerini ilk satırdan alıp değişkene atıyoruz
-                if ($bilgi == "") {
-                    $bilgi = "<strong>" . htmlspecialchars($row['MusteriTamAd']) . "</strong><br>" . 
-                             "<span style='color:#666;'>" . htmlspecialchars($row['AcikAdres']) . "</span>";
-                    $tarih = date("d.m.Y H:i", strtotime($row['SiparisTarihi']));
+            // fetchAll(PDO::FETCH_ASSOC) ile tüm sonuçları bir kerede diziye alıyoruz
+            $detaylar = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            if (!empty($detaylar)) {
+                foreach ($detaylar as $row) {
+                    // Müşteri ve Sipariş genel bilgilerini ilk satırdan alıyoruz
+                    if ($bilgi == "") {
+                        $bilgi = "<strong>" . htmlspecialchars($row['MusteriTamAd']) . "</strong><br>" . 
+                                 "<span style='color:#666;'>" . htmlspecialchars($row['AcikAdres']) . "</span>";
+                        $tarih = date("d.m.Y H:i", strtotime($row['SiparisTarihi']));
+                    }
+                    
+                    // Toplam tutarı topluyoruz
+                    $toplam_tutar += $row['SatirToplami'];
+                    // ... döngü bittikten sonra (yere dikkat: foreach dışına)
+                  $kdv_orani = 0.20; // %20 KDV
+                  $kdv_tutari = $toplam_tutar * $kdv_orani;
+                $genel_toplam_kdvli = $toplam_tutar + $kdv_tutari;
                 }
-                
-                // Toplam tutarı topluyoruz (BirimFiyat güncel prosedürünüzden gelmeli)
-                $toplam_tutar += $row['SatirToplami'];
             }
-        } else {
-            $hata = "Veritabanı hatası: " . $stmt->error;
+            
+            $stmt->closeCursor(); // Procedure sonrası bağlantıyı serbest bırak
         }
-        $stmt->close();
-        while ($conn->more_results() && $conn->next_result()) { ; }
+    } catch (PDOException $e) {
+        $hata = "Veritabanı hatası: " . $e->getMessage();
     }
 } else {
     $hata = "Geçersiz Sipariş ID.";
@@ -131,11 +142,11 @@ if ($siparis_id > 0) {
     </div>
 
     <?php if ($hata): ?>
-        <div class="alert alert-error" style="max-width: 800px; margin: 20px auto;">
+        <div class="alert alert-error" style="max-width: 800px; margin: 20px auto; background: #fee2e2; color: #b91c1c; padding: 15px; border-radius: 8px;">
             ⚠️ <?php echo htmlspecialchars($hata); ?>
         </div>
     <?php elseif (empty($detaylar)): ?>
-        <div class="card" style="text-align: center; padding: 40px;">
+        <div class="card" style="text-align: center; padding: 40px; background: white; border-radius: 8px; max-width: 800px; margin: 20px auto;">
             <h3>Sipariş Bulunamadı</h3>
             <p>Aradığınız numaraya ait sipariş verisi yok.</p>
         </div>
@@ -177,32 +188,37 @@ if ($siparis_id > 0) {
                             <strong><?php echo htmlspecialchars($d['UrunAdi'] ?? 'Bilinmeyen Ürün'); ?></strong>
                         </td>
                         <td class="text-center">
-                            <?php 
-                                $birim_fiyat = $d['BirimFiyat'] ?? 0; 
-                                echo number_format($birim_fiyat, 2); 
-                            ?> ₺
+                            <?php echo number_format($d['BirimFiyat'] ?? 0, 2); ?> ₺
                         </td>
                         <td class="text-center">
                             <?php echo $d['Adet'] ?? 0; ?>
                         </td>
                         <td class="text-right" style="font-weight: 500;">
-                            <?php 
-                                $satir_toplami = $d['SatirToplami'] ?? 0;
-                                echo number_format($satir_toplami, 2); 
-                            ?> ₺
+                            <?php echo number_format($d['SatirToplami'] ?? 0, 2); ?> ₺
                         </td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>
 
-            <div class="total-section">
-                Genel Toplam: <span class="total-amount"><?php echo number_format($toplam_tutar, 2); ?> ₺</span>
-            </div>
-
-            <div style="margin-top: 40px; font-size: 12px; color: #94a3b8; text-align: center; border-top: 1px solid #f1f5f9; padding-top: 20px;">
-                Bu belge depo çıkış fişi olarak kullanılabilir. Sistem tarafından otomatik oluşturulmuştur.
-            </div>
+           <div class="total-section">
+    <table style="width: 250px; margin-left: auto; font-size: 1rem;">
+        <tr>
+            <td class="text-right" style="color: #64748b;">Ara Toplam:</td>
+            <td class="text-right"><?php echo number_format($toplam_tutar, 2, ',', '.'); ?> ₺</td>
+        </tr>
+        <tr>
+            <td class="text-right" style="color: #64748b;">KDV (%20):</td>
+            <td class="text-right"><?php echo number_format($kdv_tutari, 2, ',', '.'); ?> ₺</td>
+        </tr>
+        <tr>
+            <td class="text-right" style="font-weight: bold; padding-top: 10px; border-top: 1px solid #e2e8f0;">Genel Toplam:</td>
+            <td class="text-right total-amount" style="padding-top: 10px; border-top: 1px solid #e2e8f0;">
+                <?php echo number_format($genel_toplam_kdvli, 2, ',', '.'); ?> ₺
+            </td>
+        </tr>
+    </table>
+</div>
 
         </div>
 
